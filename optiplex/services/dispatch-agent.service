@@ -1,0 +1,18 @@
+[Unit]
+Description=HarrisonFD Dispatch Agent (rsync + Postgres INSERT)
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/opt/dispatch/venv/bin/python /opt/dispatch/scripts/dispatch_agent.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-agent
+
+[Install]
+WantedBy=multi-user.target

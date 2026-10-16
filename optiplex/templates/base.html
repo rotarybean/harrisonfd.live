@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}HarrisonFD Dispatch{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #080b0f;
+      --bg2:        #0c1018;
+      --surface:    #111620;
+      --surface2:   #171e2e;
+      --border:     #1e2840;
+      --border2:    #263050;
+      --accent:     #00aaff;
+      --accent-dim: #0066aa;
+      --red:        #ff3b3b;
+      --orange:     #ff8c00;
+      --green:      #00e676;
+      --yellow:     #ffd600;
+      --text:       #c8d8e8;
+      --text2:      #7a90a8;
+      --mono:       'Share Tech Mono', monospace;
+      --head:       'Barlow Condensed', sans-serif;
+      --body:       'Barlow', sans-serif;
+      --scan-line:  rgba(0,170,255,0.03);
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      background-image: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        var(--scan-line) 2px, var(--scan-line) 4px
+      );
+    }
+
+    /* ── Disclaimer Modal ── */
+    #disclaimer-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 1000;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #disclaimer-overlay.visible { display: flex; }
+    #disclaimer-box {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-top: 3px solid var(--accent); border-radius: 8px;
+      max-width: 560px; width: 100%; padding: 32px;
+    }
+    #disclaimer-box h2 {
+      font-family: var(--head); font-size: 20px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 16px;
+    }
+    #disclaimer-box p { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 12px; }
+    #disclaimer-box .emergency {
+      background: rgba(255,59,59,0.08); border: 1px solid rgba(255,59,59,0.3);
+      border-radius: 4px; padding: 10px 14px; color: var(--red);
+      font-weight: 500; margin: 16px 0; font-size: 14px;
+    }
+    #disclaimer-box .contact { color: var(--text2); font-family: var(--mono); font-size: 12px; margin-bottom: 20px; }
+    #disclaimer-box a { color: var(--accent); }
+    #dismiss-btn {
+      width: 100%; padding: 12px; background: var(--accent); color: #000;
+      border: none; border-radius: 4px; font-family: var(--head);
+      font-size: 15px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; cursor: pointer; transition: opacity .15s;
+    }
+    #dismiss-btn:hover { opacity: 0.85; }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; gap: 16px;
+      height: 52px; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    }
+    .logo { font-family: var(--head); font-size: 22px; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase; text-decoration: none; color: var(--text); }
+    .logo em { color: var(--accent); font-style: normal; }
+    .logo sup { font-size: 10px; font-family: var(--mono); color: var(--text2);
+                letter-spacing: 1px; vertical-align: super; margin-left: 4px; }
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3);
+      border-radius: 20px; padding: 3px 10px;
+      font-family: var(--mono); font-size: 11px; color: var(--green); letter-spacing: 1px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+                animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+    nav { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+    nav a { font-family: var(--head); font-size: 13px; font-weight: 600; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--text2); text-decoration: none;
+            padding: 6px 12px; border-radius: 4px; transition: color .15s, background .15s; }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(0,170,255,0.08); }
+    #alert-badge {
+      display: none; align-items: center; gap: 5px;
+      background: rgba(255,59,59,0.15); border: 1px solid rgba(255,59,59,0.4);
+      color: var(--red); font-family: var(--mono); font-size: 11px;
+      padding: 4px 10px; border-radius: 4px; cursor: pointer; text-decoration: none;
+      animation: alert-flash 1s ease-in-out infinite;
+    }
+    #alert-badge.visible { display: flex; }
+    @keyframes alert-flash { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 6px 24px; display: flex; gap: 28px;
+      font-family: var(--mono); font-size: 12px; flex-wrap: wrap;
+    }
+    .stat { display: flex; gap: 8px; align-items: center; }
+    .stat-label { color: var(--text2); text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
+    .stat-val { color: var(--text); font-weight: 600; }
+    .stat-val.warn  { color: var(--yellow); }
+    .stat-val.alert { color: var(--red); }
+    .stat-divider { width: 1px; height: 16px; background: var(--border2); }
+
+    /* ── Layout ── */
+    main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+    /* ── Player bar ── */
+    #player-bar {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 8px; padding: 14px 20px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    #player-bar .player-label { font-family: var(--head); font-size: 13px; font-weight: 600;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--accent);
+      white-space: nowrap; min-width: 80px; }
+    #player-bar .player-meta { font-family: var(--mono); font-size: 11px; color: var(--text2); white-space: nowrap; }
+    #player-bar audio { flex: 1; min-width: 200px; accent-color: var(--accent); height: 32px; }
+    #player-bar .player-status { font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 4px; white-space: nowrap; }
+    #player-bar .player-status.playing { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); }
+    #player-bar .player-status.waiting { background: rgba(122,144,168,0.1); border: 1px solid rgba(122,144,168,0.2); color: var(--text2); }
+    #queue-count { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 4px;
+           font-family: var(--head); font-size: 13px; font-weight: 600; letter-spacing: .5px;
+           text-transform: uppercase; cursor: pointer; border: none; text-decoration: none; transition: opacity .15s; }
+    .btn:hover { opacity: .8; }
+    .btn-primary   { background: var(--accent); color: #000; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+    .btn-danger    { background: rgba(255,59,59,.15); color: var(--red); border: 1px solid rgba(255,59,59,.3); }
+    .btn-sm { padding: 3px 10px; font-size: 11px; }
+
+    /* ── Form controls ── */
+    input[type=text],input[type=date],input[type=search],select {
+      background: var(--bg2); border: 1px solid var(--border2); color: var(--text);
+      border-radius: 4px; padding: 6px 10px; font-family: var(--body); font-size: 13px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 8px 12px; font-family: var(--head); font-size: 11px;
+         font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2);
+         border-bottom: 1px solid var(--border2); }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    tr.playing td { background: rgba(0,170,255,.05); }
+
+    /* ── Priority badges ── */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 3px;
+             font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .5px; }
+    .badge-routine  { background: rgba(0,230,118,.08);   color: var(--green);  border: 1px solid rgba(0,230,118,.2); }
+    .badge-elevated { background: rgba(255,214,0,.08);   color: var(--yellow); border: 1px solid rgba(255,214,0,.2); }
+    .badge-high     { background: rgba(255,59,59,.1);    color: var(--red);    border: 1px solid rgba(255,59,59,.3); }
+    .badge-pending  { background: rgba(122,144,168,.08); color: var(--text2);  border: 1px solid var(--border2); }
+
+    /* ── Signal stats ── */
+    .signal-bar-wrap { display: flex; align-items: center; gap: 6px; }
+    .signal-bar { height: 6px; border-radius: 3px; background: var(--border2); flex: 1; max-width: 80px; overflow: hidden; }
+    .signal-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); transition: width .3s; }
+    .signal-val { font-family: var(--mono); font-size: 10px; color: var(--text2); white-space: nowrap; }
+
+    /* ── Transcript ── */
+    .transcript-block { font-size: 14px; line-height: 1.75; background: var(--bg2);
+      border-radius: 4px; padding: 10px 14px; border-left: 3px solid var(--accent); margin: 8px 0; }
+    .transcript-block.alert-border { border-left-color: var(--red); }
+    .empty { color: var(--text2); font-style: italic; font-size: 13px; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-size: 13px; }
+    .pagination a { color: var(--accent); text-decoration: none; font-family: var(--mono); }
+    .pagination .cur { color: var(--text); font-family: var(--mono); }
+
+    audio { accent-color: var(--accent); }
+
+    /* ── Footer ── */
+    footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 20px 24px; }
+    .footer-main { display: flex; flex-wrap: wrap; justify-content: space-between;
+                   align-items: center; gap: 16px; margin-bottom: 14px; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+                    font-family: var(--mono); font-size: 11px; color: var(--text2); }
+    .footer-links a { color: var(--accent); text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+    .visitor-counter { display: flex; gap: 16px; font-family: var(--mono); font-size: 11px; color: var(--text2); }
+    .visitor-counter span { display: flex; gap: 5px; align-items: center; }
+    .visitor-counter strong { color: var(--text); }
+    .bmac-btn { display: inline-flex; align-items: center; gap: 8px; background: #FFDD00; color: #000000;
+                font-family: var(--head); font-size: 13px; font-weight: 700; letter-spacing: .5px;
+                padding: 8px 16px; border-radius: 6px; text-decoration: none; transition: opacity .15s; white-space: nowrap; }
+    .bmac-btn:hover { opacity: 0.85; }
+    .footer-disclaimer { font-size: 11px; color: var(--text2); line-height: 1.6;
+                         border-top: 1px solid var(--border); padding-top: 12px; text-align: center; }
+    .footer-disclaimer a { color: var(--text2); }
+    .footer-disclaimer button { background: none; border: none; color: var(--accent);
+                                 font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Disclaimer Modal ── -->
+<div id="disclaimer-overlay">
+  <div id="disclaimer-box">
+    <h2>Public Notice</h2>
+    <p>This website is operated by a private civilian. All audio content is received from publicly broadcast radio frequencies and is provided for informational and community awareness purposes only.</p>
+    <p>This site has no affiliation with any fire department, emergency services agency, or local, state, or federal government agency. Transmissions are not monitored in real time and should never be used as a substitute for calling 911 or official emergency services.</p>
+    <div class="emergency">&#9888;&nbsp; If you are experiencing an emergency, call 911 immediately.</div>
+    <p class="contact">Questions or concerns: <a href="mailto:{{ config.CONTACT_EMAIL }}">{{ config.CONTACT_EMAIL }}</a></p>
+    <button id="dismiss-btn">I Understand — Enter Site</button>
+  </div>
+</div>
+
+<header>
+  <a href="/" class="logo">Harrison<em>FD</em><sup>DISPATCH</sup></a>
+  <div class="live-pill"><span class="live-dot"></span>LIVE</div>
+  <nav>
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">Transmissions</a>
+    <a href="/alerts" class="{% if request.path == '/alerts' %}active{% endif %}">Alerts</a>
+    <a href="/health">Status</a>
+    <a href="#" id="alert-badge" onclick="window.location='/alerts'; return false;">
+      &#9888; <span id="alert-count">0</span> ALERT
+    </a>
+  </nav>
+</header>
+
+{% if stats is defined %}
+<div class="stats-bar">
+  <div class="stat"><span class="stat-label">Today</span><span class="stat-val" id="stat-today">{{ stats.transmissions_today or 0 }}</span></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><span class="stat-label">Elevated</span><span class="stat-val warn" id="stat-elevated">{{ stats.elevated_today or 0 }}</span></div>
+  <div class="stat"><span class="stat-label">High</span><span class="stat-val alert" id="stat-high">{{ stats.high_today or 0 }}</span></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><span class="stat-label">Alerts</span><span class="stat-val alert" id="stat-alerts">{{ stats.unacked_alerts or 0 }}</span></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><span class="stat-label">All Time</span><span class="stat-val" id="stat-total">{{ stats.total_all_time or 0 }}</span></div>
+</div>
+{% endif %}
+
+<main>{% block content %}{% endblock %}</main>
+
+<footer>
+  <div class="footer-main">
+    <div class="visitor-counter">
+      <span>Visitors today: <strong id="visitors-today">{% if visitors is defined %}{{ visitors.today }}{% else %}—{% endif %}</strong></span>
+      <span>|</span>
+      <span>All time: <strong id="visitors-total">{% if visitors is defined %}{{ visitors.total }}{% else %}—{% endif %}</strong></span>
+    </div>
+    <div class="footer-links">
+      <a href="mailto:{{ config.CONTACT_EMAIL }}">{{ config.CONTACT_EMAIL }}</a>
+      <span>|</span>
+      <span>{{ config.SITE_DOMAIN }}</span>
+    </div>
+    <a href="{{ config.BMAC_URL }}" target="_blank" rel="noopener" class="bmac-btn">
+      ☕ Buy Me a Coffee
+    </a>
+  </div>
+  <div class="footer-disclaimer">
+    This site is operated by a private civilian and has no affiliation with any emergency services agency or government body.
+    &nbsp;|&nbsp; <button onclick="document.getElementById('disclaimer-overlay').classList.add('visible')">View full disclaimer</button>
+    &nbsp;|&nbsp; <a href="mailto:{{ config.CONTACT_EMAIL }}">{{ config.CONTACT_EMAIL }}</a>
+  </div>
+</footer>
+
+<script>
+if (!localStorage.getItem('disclaimer_accepted')) {
+  document.getElementById('disclaimer-overlay').classList.add('visible');
+}
+document.getElementById('dismiss-btn').addEventListener('click', () => {
+  localStorage.setItem('disclaimer_accepted', '1');
+  document.getElementById('disclaimer-overlay').classList.remove('visible');
+});
+
+async function pollStats() {
+  try {
+    const r = await fetch('/api/stats');
+    if (!r.ok) return;
+    const d = await r.json();
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val ?? 0; };
+    set('stat-today', d.transmissions_today);
+    set('stat-elevated', d.elevated_today);
+    set('stat-high', d.high_today);
+    set('stat-alerts', d.unacked_alerts);
+    set('stat-total', d.total_all_time);
+    const badge = document.getElementById('alert-badge');
+    const count = document.getElementById('alert-count');
+    if (badge && count) {
+      count.textContent = d.unacked_alerts ?? 0;
+      badge.classList.toggle('visible', (d.unacked_alerts ?? 0) > 0);
+    }
+  } catch(e) {}
+}
+
+async function pollVisitors() {
+  try {
+    const r = await fetch('/api/visitors');
+    if (!r.ok) return;
+    const d = await r.json();
+    const t = document.getElementById('visitors-today');
+    const a = document.getElementById('visitors-total');
+    if (t) t.textContent = d.today ?? 0;
+    if (a) a.textContent = d.total ?? 0;
+  } catch(e) {}
+}
+
+pollStats(); pollVisitors();
+setInterval(pollStats, 30000);
+setInterval(pollVisitors, 60000);
+
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-ack]');
+  if (!btn) return;
+  const r = await fetch(`/alerts/${btn.dataset.ack}/ack`, { method:'POST' });
+  if (r.ok) {
+    const row = btn.closest('tr') || btn.closest('.alert-row');
+    if (row) row.remove();
+    pollStats();
+  }
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

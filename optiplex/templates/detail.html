@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Transmission #{{ tx.id }} — HarrisonFD Dispatch{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px;">
+  <a href="/" class="btn btn-secondary btn-sm">&larr; Back</a>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-family:var(--head);font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">
+        Transmission #{{ tx.id }}
+        {% if tx.priority == 'high' %}<span class="badge badge-high" style="margin-left:8px;vertical-align:middle;">HIGH</span>
+        {% elif tx.priority == 'elevated' %}<span class="badge badge-elevated" style="margin-left:8px;vertical-align:middle;">ELEVATED</span>
+        {% elif tx.priority == 'routine' %}<span class="badge badge-routine" style="margin-left:8px;vertical-align:middle;">ROUTINE</span>{% endif %}
+      </h2>
+      <p style="color:var(--text2);font-family:var(--mono);font-size:11px;">
+        {{ tx.recorded_at.strftime('%Y-%m-%d %H:%M:%S UTC') if tx.recorded_at else '—' }}
+        &nbsp;|&nbsp; {{ "%.2f"|format(tx.duration_sec) }}s
+      </p>
+    </div>
+    <a href="/audio/{{ tx.id }}" download="{{ tx.wav_filename }}" class="btn btn-primary">&#8659; Download WAV</a>
+  </div>
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <audio controls src="/audio/{{ tx.id }}" style="width:100%;accent-color:var(--accent);"></audio>
+
+  {% if tx.rms_amplitude is not none %}
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <p style="font-family:var(--head);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Signal Analysis</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+    {% for label, val, pct in [
+      ('RMS Amplitude', "%.4f"|format(tx.rms_amplitude), tx.rms_amplitude * 200),
+      ('Max Amplitude', ("%.4f"|format(tx.max_amplitude)) if tx.max_amplitude else '—', (tx.max_amplitude or 0) * 100),
+      ('Mean Norm',     ("%.4f"|format(tx.mean_norm)) if tx.mean_norm else '—', (tx.mean_norm or 0) * 200),
+    ] %}
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">{{ label }}</div>
+      <div style="font-family:var(--mono);font-size:18px;color:var(--accent);margin-bottom:6px;">{{ val }}</div>
+      <div class="signal-bar" style="max-width:100%;"><div class="signal-bar-fill" style="width:{{ [pct, 100]|min }}%;"></div></div>
+    </div>
+    {% endfor %}
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Rough Frequency</div>
+      <div style="font-family:var(--mono);font-size:18px;color:var(--accent);">{{ tx.rough_frequency }}Hz</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <p style="font-family:var(--head);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Transcript</p>
+  {% if tx.transcript %}
+    <div class="transcript-block {% if alerts %}alert-border{% endif %}">{{ tx.transcript }}</div>
+    <p style="color:var(--text2);font-family:var(--mono);font-size:11px;margin-top:4px;">Model: {{ tx.whisper_model or 'unknown' }}</p>
+  {% else %}
+    <p class="empty">Transcript not yet available.</p>
+  {% endif %}
+
+  {% if alerts %}
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <p style="font-family:var(--head);font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">&#9888; Keyword Alerts ({{ alerts|length }})</p>
+  {% for a in alerts %}
+  <div style="background:rgba(255,59,59,.05);border:1px solid rgba(255,59,59,.2);border-radius:4px;padding:10px 14px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <span class="badge {% if a.alert_level == 'high' %}badge-high{% else %}badge-elevated{% endif %}" style="margin-right:8px;">{{ a.alert_level|upper }}</span>
+        <strong>"{{ a.keyword_matched }}"</strong>
+        {% if a.category %}<span style="color:var(--text2);font-size:12px;margin-left:6px;">[{{ a.category }}]</span>{% endif %}
+      </div>
+      {% if not a.acknowledged %}
+      <button class="btn btn-danger btn-sm" data-ack="{{ a.id }}">Acknowledge</button>
+      {% else %}
+      <span style="color:var(--text2);font-family:var(--mono);font-size:11px;">ACK</span>{% endif %}
+    </div>
+    {% if a.llm_response %}<div class="transcript-block alert-border" style="margin-top:8px;font-size:13px;">{{ a.llm_response }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if tx.llm_summary %}
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <p style="font-family:var(--head);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">LLM Summary</p>
+  <div class="transcript-block" style="border-left-color:var(--orange);">{{ tx.llm_summary }}</div>
+  {% endif %}
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+  <p style="font-family:var(--head);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Metadata</p>
+  <table style="width:auto;">
+    {% for label, value in [
+      ('File', tx.wav_filename),
+      ('Recorded', tx.recorded_at.strftime('%Y-%m-%d %H:%M:%S UTC') if tx.recorded_at else '—'),
+      ('Duration', "%.2f s"|format(tx.duration_sec)),
+      ('Priority', tx.priority or 'pending'),
+      ('Analyzed', 'Yes' if tx.analyzed else 'No'),
+      ('Whisper model', tx.whisper_model or '—'),
+    ] %}
+    <tr>
+      <td style="color:var(--text2);font-family:var(--mono);font-size:11px;padding:3px 24px 3px 0;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px;">{{ label }}</td>
+      <td style="font-family:var(--mono);font-size:12px;">{{ value }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

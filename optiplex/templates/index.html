@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Transmissions — HarrisonFD Dispatch{% endblock %}
+
+{% block content %}
+<div id="player-bar">
+  <span class="player-label">&#9654; Live</span>
+  <audio id="live-player" controls preload="auto"></audio>
+  <span id="player-meta" class="player-meta">—</span>
+  <span id="player-status" class="player-status waiting">WAITING</span>
+  <span id="queue-count"></span>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+  <div>
+    <h1 style="font-family:var(--head);font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Transmissions</h1>
+    <p style="color:var(--text2);font-family:var(--mono);font-size:11px;margin-top:2px;">{{ total }} records &mdash; page {{ page }}/{{ pages }}</p>
+  </div>
+</div>
+
+<div class="card" style="padding:10px 16px;margin-bottom:16px;">
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input type="search" name="q" placeholder="Search transcripts…" value="{{ search }}" style="flex:1;min-width:180px;">
+    <input type="date" name="date" value="{{ date }}">
+    <select name="priority">
+      <option value="">All priorities</option>
+      <option value="routine"  {% if priority=='routine'  %}selected{% endif %}>Routine</option>
+      <option value="elevated" {% if priority=='elevated' %}selected{% endif %}>Elevated</option>
+      <option value="high"     {% if priority=='high'     %}selected{% endif %}>High</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    {% if search or date or priority %}
+      <a href="/" class="btn btn-secondary btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if transmissions %}
+<div class="card" style="padding:0;overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th><th>Dur</th><th>Priority</th><th>Signal</th><th>Transcript</th><th>Audio</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="tx-table-body">
+    {% for tx in transmissions %}
+      <tr id="tx-row-{{ tx.id }}" data-tx-id="{{ tx.id }}">
+        <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--text2);">
+          {{ tx.recorded_at.strftime('%m/%d %H:%M:%S') if tx.recorded_at else '—' }}
+        </td>
+        <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--text2);">
+          {{ "%.1f"|format(tx.duration_sec) }}s
+        </td>
+        <td>
+          {% if tx.priority == 'high' %}<span class="badge badge-high">HIGH</span>
+          {% elif tx.priority == 'elevated' %}<span class="badge badge-elevated">ELEV</span>
+          {% elif tx.priority == 'routine' %}<span class="badge badge-routine">OK</span>
+          {% else %}<span class="badge badge-pending">—</span>{% endif %}
+        </td>
+        <td style="min-width:100px;">
+          {% if tx.rms_amplitude is not none %}
+            <div class="signal-bar-wrap">
+              <div class="signal-bar">
+                <div class="signal-bar-fill" style="width:{{ [tx.rms_amplitude * 200, 100]|min }}%"></div>
+              </div>
+              <span class="signal-val">{{ "%.3f"|format(tx.rms_amplitude) }}</span>
+            </div>
+            {% if tx.rough_frequency %}
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:2px;">~{{ tx.rough_frequency }}Hz</div>
+            {% endif %}
+          {% else %}<span class="signal-val">—</span>{% endif %}
+        </td>
+        <td style="max-width:360px;">
+          {% if tx.transcript %}
+            <span style="font-size:13px;">{{ tx.transcript[:100] }}{% if tx.transcript|length > 100 %}…{% endif %}</span>
+          {% else %}<span class="empty">Transcribing…</span>{% endif %}
+        </td>
+        <td style="min-width:160px;">
+          <audio controls preload="none" src="/audio/{{ tx.id }}"
+                 style="width:150px;height:28px;" id="audio-{{ tx.id }}"></audio>
+        </td>
+        <td style="white-space:nowrap;">
+          <a href="/transmission/{{ tx.id }}" class="btn btn-secondary btn-sm">Detail</a>
+          <a href="/audio/{{ tx.id }}" download="{{ tx.wav_filename }}" class="btn btn-secondary btn-sm">WAV</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page-1 }}&q={{ search }}&date={{ date }}&priority={{ priority }}">&larr; Prev</a>{% endif %}
+  <span class="cur">{{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a href="?page={{ page+1 }}&q={{ search }}&date={{ date }}&priority={{ priority }}">Next &rarr;</a>{% endif %}
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:48px;">
+  <p class="empty">No transmissions found{% if search %} matching "{{ search }}"{% endif %}.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const player   = document.getElementById('live-player');
+const meta     = document.getElementById('player-meta');
+const status   = document.getElementById('player-status');
+const queueCnt = document.getElementById('queue-count');
+
+let latestId = {{ latest_id }};
+let queue    = [];
+let playing  = false;
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function setStatus(state) {
+  status.className = 'player-status ' + state;
+  status.textContent = state === 'playing' ? 'PLAYING' : 'WAITING';
+}
+
+function playNext() {
+  if (queue.length === 0) { playing = false; setStatus('waiting'); meta.textContent = '—'; queueCnt.textContent = ''; return; }
+  const tx = queue.shift();
+  queueCnt.textContent = queue.length > 0 ? `+${queue.length} queued` : '';
+  player.src = `/audio/${tx.id}`;
+  meta.textContent = `#${tx.id}  ${fmtTime(tx.recorded_at)}  ${(tx.duration_sec||0).toFixed(1)}s`;
+  document.querySelectorAll('tr.playing').forEach(r => r.classList.remove('playing'));
+  const row = document.getElementById(`tx-row-${tx.id}`);
+  if (row) row.classList.add('playing');
+  playing = true; setStatus('playing');
+  player.load();
+  player.play().catch(() => { setStatus('waiting'); meta.textContent = `#${tx.id} — click play`; });
+}
+
+player.addEventListener('ended', playNext);
+player.addEventListener('error', () => { playing = false; playNext(); });
+
+async function pollLatest() {
+  try {
+    const r = await fetch(`/api/latest?after=${latestId}`);
+    if (!r.ok) return;
+    const txs = await r.json();
+    if (txs.length === 0) return;
+    txs.forEach(tx => {
+      queue.push(tx);
+      latestId = Math.max(latestId, tx.id);
+      const tbody = document.getElementById('tx-table-body');
+      if (tbody) {
+        const pri = tx.priority;
+        const badgeClass = pri==='high'?'badge-high':pri==='elevated'?'badge-elevated':pri==='routine'?'badge-routine':'badge-pending';
+        const badgeText  = pri==='high'?'HIGH':pri==='elevated'?'ELEV':pri==='routine'?'OK':'—';
+        const rms = tx.rms_amplitude;
+        const signalHtml = rms != null
+          ? `<div class="signal-bar-wrap"><div class="signal-bar"><div class="signal-bar-fill" style="width:${Math.min(rms*200,100)}%"></div></div><span class="signal-val">${rms.toFixed(3)}</span></div>${tx.rough_frequency?`<div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:2px;">~${tx.rough_frequency}Hz</div>`:''}`
+          : '<span class="signal-val">—</span>';
+        const transcript = tx.transcript ? (tx.transcript.length>100?tx.transcript.slice(0,100)+'…':tx.transcript) : '<span class="empty">Transcribing…</span>';
+        const time = tx.recorded_at ? new Date(tx.recorded_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+        const tr = document.createElement('tr');
+        tr.id = `tx-row-${tx.id}`; tr.dataset.txId = tx.id;
+        tr.innerHTML = `
+          <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--text2);">${time}</td>
+          <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--text2);">${(tx.duration_sec||0).toFixed(1)}s</td>
+          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td style="min-width:100px;">${signalHtml}</td>
+          <td style="max-width:360px;font-size:13px;">${transcript}</td>
+          <td style="min-width:160px;"><audio controls preload="none" src="/audio/${tx.id}" style="width:150px;height:28px;" id="audio-${tx.id}"></audio></td>
+          <td style="white-space:nowrap;">
+            <a href="/transmission/${tx.id}" class="btn btn-secondary btn-sm">Detail</a>
+            <a href="/audio/${tx.id}" download class="btn btn-secondary btn-sm">WAV</a>
+          </td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
+      }
+    });
+    queueCnt.textContent = queue.length > 0 ? `+${queue.length} queued` : '';
+    if (!playing) playNext();
+  } catch(e) {}
+}
+
+setInterval(pollLatest, 5000);
+</script>
+{% endblock %}

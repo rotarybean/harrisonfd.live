@@ -1,0 +1,59 @@
+# ============================================================
+# /etc/nginx/sites-available/harrisonfd
+# Replace YOUR_DOMAIN with your actual domain before use.
+# Run certbot --nginx -d YOUR_DOMAIN -d www.YOUR_DOMAIN
+# after placing this file to add SSL automatically.
+# ============================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name YOUR_DOMAIN www.YOUR_DOMAIN;
+
+    # Certbot will replace this block with SSL redirect
+    location / {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+        proxy_buffering    off;
+    }
+
+    location /audio/ {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_read_timeout 60s;
+        proxy_buffering    on;
+        proxy_buffer_size  16k;
+        proxy_buffers      8 16k;
+    }
+
+    # Security headers
+    add_header X-Frame-Options        "SAMEORIGIN"    always;
+    add_header X-Content-Type-Options "nosniff"       always;
+    add_header X-XSS-Protection       "1; mode=block" always;
+    add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy     "geolocation=(), microphone=(), camera=()" always;
+
+    # Rate limiting (define in nginx.conf http block):
+    # limit_req_zone $binary_remote_addr zone=dispatch:10m rate=30r/m;
+    limit_req zone=dispatch burst=20 nodelay;
+
+    access_log /var/log/nginx/harrisonfd_access.log;
+    error_log  /var/log/nginx/harrisonfd_error.log;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript;
+
+    # Block common attack paths
+    location ~* \.(php|asp|aspx|jsp|cgi)$ { return 444; }
+    location ~* /\.(git|env|htaccess)     { return 444; }
+    location = /wp-login.php              { return 444; }
+    location = /xmlrpc.php                { return 444; }
+}

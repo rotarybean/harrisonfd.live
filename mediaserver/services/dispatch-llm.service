@@ -1,0 +1,18 @@
+[Unit]
+Description=HarrisonFD LLM Analysis Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=dispatch
+Group=dispatch
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/opt/dispatch/venv/bin/python /opt/dispatch/llm/llm_service.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-llm
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=HarrisonFD Dispatch REST API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=dispatch
+Group=dispatch
+WorkingDirectory=/opt/dispatch/api
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/opt/dispatch/venv/bin/python /opt/dispatch/api/api.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-api
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=HarrisonFD RF Capture (rtl_fm + sox)
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+SupplementaryGroups=plugdev
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/bin/bash /opt/dispatch/scripts/capture.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-capture
+
+[Install]
+WantedBy=multi-user.target

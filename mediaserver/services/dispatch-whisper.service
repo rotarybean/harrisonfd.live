@@ -1,0 +1,19 @@
+[Unit]
+Description=HarrisonFD Whisper Transcription Daemon
+After=network.target postgresql.service dispatch-llm.service
+Wants=dispatch-llm.service
+
+[Service]
+Type=simple
+User=dispatch
+Group=dispatch
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/opt/dispatch/venv/bin/python /opt/dispatch/whisper/whisper_daemon.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-whisper
+
+[Install]
+WantedBy=multi-user.target

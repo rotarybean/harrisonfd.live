@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Active Alerts — HarrisonFD Dispatch{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <div>
+    <h1 style="font-family:var(--head);font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Active Alerts</h1>
+    <p style="color:var(--text2);font-family:var(--mono);font-size:11px;margin-top:2px;">{{ alerts|length }} unacknowledged</p>
+  </div>
+  {% if alerts %}<button class="btn btn-danger btn-sm" id="ack-all-btn">Acknowledge All</button>{% endif %}
+</div>
+
+{% if alerts %}
+<div id="alerts-container">
+  {% for a in alerts %}
+  <div class="card alert-row" id="alert-row-{{ a.id }}"
+       style="border-left:3px solid {% if a.alert_level == 'high' %}var(--red){% else %}var(--yellow){% endif %};">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+      <div>
+        <span class="badge {% if a.alert_level == 'high' %}badge-high{% else %}badge-elevated{% endif %}" style="margin-right:8px;">{{ a.alert_level|upper }}</span>
+        <strong>"{{ a.keyword_matched }}"</strong>
+        {% if a.category %}<span style="color:var(--text2);font-size:12px;margin-left:6px;">[{{ a.category }}]</span>{% endif %}
+        <span style="color:var(--text2);font-family:var(--mono);font-size:11px;margin-left:12px;">
+          {{ a.recorded_at.strftime('%Y-%m-%d %H:%M:%S') if a.recorded_at else '' }}
+        </span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="/transmission/{{ a.transmission_id }}" class="btn btn-secondary btn-sm">Detail</a>
+        <button class="btn btn-danger btn-sm" data-ack="{{ a.id }}">Acknowledge</button>
+      </div>
+    </div>
+    {% if a.transcript %}
+    <div style="margin-top:8px;font-size:13px;color:var(--text2);border-left:2px solid var(--border2);padding-left:10px;">
+      {{ a.transcript[:200] }}{% if a.transcript|length > 200 %}…{% endif %}
+    </div>
+    {% endif %}
+    {% if a.llm_response %}
+    <div class="transcript-block alert-border" style="margin-top:8px;font-size:13px;">{{ a.llm_response }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px;">
+  <p style="font-family:var(--mono);font-size:24px;color:var(--green);margin-bottom:8px;">&#10003;</p>
+  <p class="empty">No unacknowledged alerts.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('ack-all-btn')?.addEventListener('click', async () => {
+  const btns = document.querySelectorAll('[data-ack]');
+  for (const btn of btns) { await fetch(`/alerts/${btn.dataset.ack}/ack`, { method: 'POST' }); }
+  document.getElementById('alerts-container').innerHTML =
+    '<div class="card" style="text-align:center;padding:48px;"><p class="empty">All alerts acknowledged.</p></div>';
+  document.getElementById('ack-all-btn')?.remove();
+  pollStats();
+});
+</script>
+{% endblock %}

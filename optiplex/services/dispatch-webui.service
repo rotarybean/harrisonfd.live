@@ -1,0 +1,19 @@
+[Unit]
+Description=HarrisonFD Dispatch Web UI
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+WorkingDirectory=/opt/dispatch
+EnvironmentFile=/opt/dispatch/.env
+ExecStart=/opt/dispatch/venv/bin/python /opt/dispatch/webui.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dispatch-webui
+
+[Install]
+WantedBy=multi-user.target
